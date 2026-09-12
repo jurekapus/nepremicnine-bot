@@ -94,18 +94,25 @@ def guess_location(text):
     return " ".join(loc_words) if loc_words else None
 
 
-def scrape_url(page, url, debug=False):
+def scrape_url(page, url, debug=False, index=0):
     page.goto(url, wait_until="networkidle", timeout=60000)
     # Give any lazy-loaded JS content a moment to settle.
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(3000)
 
     anchors = page.eval_on_selector_all(
         "a[href*='nepremicnine.html?id=']",
         "els => els.map(e => ({href: e.href, text: e.innerText}))",
     )
 
-    if debug:
-        print(f"[debug] {url} -> {len(anchors)} raw anchors found", file=sys.stderr)
+    # Always dump a screenshot + full HTML so we can debug selector issues
+    # without needing to run this locally. These get uploaded as a GitHub
+    # Actions artifact (see workflow file) and can just be downloaded.
+    debug_dir = ROOT / "debug"
+    debug_dir.mkdir(exist_ok=True)
+    page.screenshot(path=str(debug_dir / f"screenshot_{index}.png"), full_page=True)
+    (debug_dir / f"page_{index}.html").write_text(page.content(), encoding="utf-8")
+
+    print(f"[info] {url} -> {len(anchors)} raw anchors found", file=sys.stderr)
 
     results = {}
     for a in anchors:
@@ -156,9 +163,9 @@ def main():
                 "Chrome/124.0 Safari/537.36"
             )
         )
-        for url in config["search_urls"]:
+        for i, url in enumerate(config["search_urls"]):
             try:
-                found = scrape_url(page, url, debug=debug)
+                found = scrape_url(page, url, debug=debug, index=i)
                 all_found.update(found)
             except Exception as e:
                 print(f"[warn] failed to scrape {url}: {e}", file=sys.stderr)
