@@ -1,0 +1,11 @@
+{
+  "search_urls": [
+    "PASTE_YOUR_SEARCH_RESULT_URL_HERE"
+  ],
+  "filters": {
+    "max_price": 700,
+    "min_price": null,
+    "min_size_m2": 30
+  },
+  "drop_after_days_missing": 3
+}

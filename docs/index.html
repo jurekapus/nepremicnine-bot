@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apartment Watch</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e38;
+    --text: #e8e9ec;
+    --muted: #9aa0ac;
+    --accent: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 60px;
+  }
+  header { max-width: 900px; margin: 0 auto 24px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  #meta { color: var(--muted); font-size: 0.9rem; }
+  #controls {
+    max-width: 900px; margin: 0 auto 20px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  button {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.9rem;
+  }
+  button.active { border-color: var(--accent); color: var(--accent); }
+  #list { max-width: 900px; margin: 0 auto; display: grid; gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; display: flex; justify-content: space-between; gap: 12px;
+    align-items: center; text-decoration: none; color: inherit;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .details { flex: 1; }
+  .location { font-weight: 600; margin-bottom: 4px; }
+  .facts { color: var(--muted); font-size: 0.9rem; }
+  .price { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
+  .badge {
+    background: var(--accent); color: #0f1115; font-size: 0.7rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: middle;
+  }
+  #empty { color: var(--muted); text-align: center; margin-top: 60px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🏠 Apartment Watch</h1>
+    <div id="meta">Loading…</div>
+  </header>
+  <div id="controls">
+    <button id="filter-all" class="active">All</button>
+    <button id="filter-new">New only</button>
+  </div>
+  <div id="list"></div>
+  <div id="empty" style="display:none">No listings match right now. Check back soon, or widen your filters in config.json.</div>
+
+  <script>
+    let listings = [];
+    let showNewOnly = false;
+
+    function fmtPrice(l) {
+      if (l.price_eur == null) return "Price n/a";
+      return l.price_eur.toLocaleString(undefined, {maximumFractionDigits: 0}) + " €";
+    }
+
+    function render() {
+      const list = document.getElementById("list");
+      const empty = document.getElementById("empty");
+      list.innerHTML = "";
+
+      const items = listings
+        .filter(l => !showNewOnly || l.is_new)
+        .sort((a, b) => new Date(b.first_seen) - new Date(a.first_seen));
+
+      if (items.length === 0) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      for (const l of items) {
+        const a = document.createElement("a");
+        a.href = l.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.className = "card";
+        a.innerHTML = `
+          <div class="details">
+            <div class="location">${l.location || "Unknown location"} ${l.is_new ? '<span class="badge">NEW</span>' : ""}</div>
+            <div class="facts">${l.size_m2 ? l.size_m2 + " m²" : ""}${l.rooms ? " · " + l.rooms + "-room" : ""}</div>
+          </div>
+          <div class="price">${fmtPrice(l)}</div>
+        `;
+        list.appendChild(a);
+      }
+    }
+
+    async function load() {
+      try {
+        const res = await fetch("listings.json?_=" + Date.now());
+        const data = await res.json();
+        listings = Object.values(data);
+        const newCount = listings.filter(l => l.is_new).length;
+        document.getElementById("meta").textContent =
+          `${listings.length} listings tracked · ${newCount} new · updated by a bot every ~20 min`;
+        render();
+      } catch (e) {
+        document.getElementById("meta").textContent = "Couldn't load listings.json yet — has the bot run once?";
+      }
+    }
+
+    document.getElementById("filter-all").onclick = () => {
+      showNewOnly = false;
+      document.getElementById("filter-all").classList.add("active");
+      document.getElementById("filter-new").classList.remove("active");
+      render();
+    };
+    document.getElementById("filter-new").onclick = () => {
+      showNewOnly = true;
+      document.getElementById("filter-new").classList.add("active");
+      document.getElementById("filter-all").classList.remove("active");
+      render();
+    };
+
+    load();
+  </script>
+</body>
+</html>
